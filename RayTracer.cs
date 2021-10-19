@@ -46,8 +46,9 @@ namespace rt
 
         private bool IsLit(Vector point, Light light)
         {
-            // ADD CODE HERE: Detect whether the given point has a clear line of sight to the given light
-            return true;
+            var pointToLight = new Line(point, point - light.Position);
+            var intersection = FindFirstIntersection(pointToLight, 0, 1000);
+            return intersection.Valid;
         }
 
         public void Render(Camera camera, int width, int height, string filename)
@@ -59,8 +60,14 @@ namespace rt
             {
                 for (var j = 0; j < height; j++)
                 {
-                    // ADD CODE HERE: Implement pixel color calculation
-                    image.SetPixel(i, j, background);
+                    var rayDirection = camera.Position +
+                              camera.Direction * camera.ViewPlaneDistance +
+                              (camera.Direction ^ camera.Up) * ImageToViewPlane(i, width, camera.ViewPlaneWidth) +
+                              camera.Up * ImageToViewPlane(j, height, camera.ViewPlaneHeight);
+                    var ray = new Line(camera.Position, rayDirection);
+
+                    var intersection = FindFirstIntersection(ray, camera.FrontPlaneDistance, camera.BackPlaneDistance);
+                    image.SetPixel(i, j, intersection.Valid? intersection.Geometry.Color : background);
                 }
             }
 
