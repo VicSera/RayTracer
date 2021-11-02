@@ -46,9 +46,12 @@ namespace rt
 
         private bool IsLit(Vector point, Light light)
         {
-            var pointToLight = new Line(point, point - light.Position);
-            var intersection = FindFirstIntersection(pointToLight, 0, 1000);
-            return intersection.Valid;
+            // return true;
+            var lightToPointDirection = point - light.Position;
+            var lightToPoint = new Line(light.Position, point);
+            var epsilon = 1f;
+            var intersection = FindFirstIntersection(lightToPoint, 0, lightToPointDirection.Length() - epsilon);
+            return !intersection.Visible;
         }
 
         public void Render(Camera camera, int width, int height, string filename)
@@ -62,16 +65,47 @@ namespace rt
                 {
                     var rayDirection = camera.Position +
                               camera.Direction * camera.ViewPlaneDistance +
-                              (camera.Direction ^ camera.Up) * ImageToViewPlane(i, width, camera.ViewPlaneWidth) +
+                              (camera.Up ^ camera.Direction) * ImageToViewPlane(i, width, camera.ViewPlaneWidth) +
                               camera.Up * ImageToViewPlane(j, height, camera.ViewPlaneHeight);
                     var ray = new Line(camera.Position, rayDirection);
 
                     var intersection = FindFirstIntersection(ray, camera.FrontPlaneDistance, camera.BackPlaneDistance);
-                    image.SetPixel(i, j, intersection.Valid? intersection.Geometry.Color : background);
+                    image.SetPixel(i, j, intersection.Visible? CalculateColor(intersection, camera) : background);
                 }
             }
 
             image.Store(filename);
+        }
+
+        private Color CalculateColor(Intersection intersection, Camera camera)
+        {
+            var color = new Color();
+            var N = intersection.Geometry.Normal(intersection.Position);
+            var E = (camera.Position - intersection.Position).Normalize();
+            var material = intersection.Geometry.Material;
+            foreach (var light in lights)
+            {
+                var colorFromLight = CalculateColorForLight(intersection, light, N, E, material);
+                color += colorFromLight;
+            }
+            return (color.Red != 0 || color.Green != 0 || color.Blue != 0 || color.Alpha != 0)? color : intersection.Geometry.Material.Ambient;
+        }
+
+        private Color CalculateColorForLight(Intersection intersection, Light light, Vector N, Vector E, Material material)
+        {
+            if (!IsLit(intersection.Position, light)) 
+                return new Color();
+            
+            var T = (light.Position - intersection.Position).Normalize();
+            var R = (N * (N * T) * 2 - T).Normalize();
+
+            var color = intersection.Geometry.Material.Ambient * light.Ambient;
+            if (N * T > 0)
+                color += material.Diffuse * light.Diffuse * (N * T);
+            if (E * R > 0)
+                color += material.Specular * light.Specular * Math.Pow(E * R, material.Shininess);
+
+            return color * light.Intensity;
         }
     }
 }
