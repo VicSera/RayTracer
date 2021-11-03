@@ -46,11 +46,10 @@ namespace rt
 
         private bool IsLit(Vector point, Light light)
         {
-            // return true;
-            var lightToPointDirection = point - light.Position;
-            var lightToPoint = new Line(light.Position, point);
+            var lightToPoint = point - light.Position;
+            var ray = new Line(light.Position, point);
             var epsilon = 1f;
-            var intersection = FindFirstIntersection(lightToPoint, 0, lightToPointDirection.Length() - epsilon);
+            var intersection = FindFirstIntersection(ray, 0, lightToPoint.Length() - epsilon);
             return !intersection.Visible;
         }
 
@@ -63,11 +62,11 @@ namespace rt
             {
                 for (var j = 0; j < height; j++)
                 {
-                    var rayDirection = camera.Position +
+                    var viewPlanePoint = camera.Position +
                               camera.Direction * camera.ViewPlaneDistance +
                               (camera.Up ^ camera.Direction) * ImageToViewPlane(i, width, camera.ViewPlaneWidth) +
                               camera.Up * ImageToViewPlane(j, height, camera.ViewPlaneHeight);
-                    var ray = new Line(camera.Position, rayDirection);
+                    var ray = new Line(camera.Position, viewPlanePoint);
 
                     var intersection = FindFirstIntersection(ray, camera.FrontPlaneDistance, camera.BackPlaneDistance);
                     image.SetPixel(i, j, intersection.Visible? CalculateColor(intersection, camera) : background);
@@ -88,7 +87,8 @@ namespace rt
                 var colorFromLight = CalculateColorForLight(intersection, light, N, E, material);
                 color += colorFromLight;
             }
-            return (color.Red != 0 || color.Green != 0 || color.Blue != 0 || color.Alpha != 0)? color : intersection.Geometry.Material.Ambient;
+            return color.Red != 0 || color.Green != 0 || color.Blue != 0 || color.Alpha != 0? 
+                color : intersection.Geometry.Material.Ambient;
         }
 
         private Color CalculateColorForLight(Intersection intersection, Light light, Vector N, Vector E, Material material)
